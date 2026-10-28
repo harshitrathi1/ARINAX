@@ -1,0 +1,8 @@
+{
+  "name": "Remix ArenaX",
+  "description": "The premier social network for mobile gamers to verify profiles, share highlights, and challenge rivals in real-time.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,319 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Public gaming profile and Elo stats for an ArenaX player (PII isolated).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Authenticated owner UID" },
+        "username": { "type": "string", "description": "Unique gamer handle (3-30 chars)" },
+        "displayName": { "type": "string", "description": "Display name (1-50 chars)" },
+        "bio": { "type": "string", "description": "Gamer bio and roles (0-300 chars)" },
+        "avatarUrl": { "type": "string", "description": "Avatar URL or preset key" },
+        "visibility": { "type": "string", "enum": ["public", "private"] },
+        "primaryGame": { "type": "string", "enum": ["BGMI", "FREE_FIRE"] },
+        "primaryIgn": { "type": "string", "description": "Verified in-game name" },
+        "primaryGameUid": { "type": "string", "description": "Verified in-game UID" },
+        "primaryRank": { "type": "string", "description": "Verified in-game rank/tier" },
+        "primaryLevel": { "type": "integer", "description": "Verified in-game level" },
+        "isVerified": { "type": "boolean", "description": "Whether player passed AI screenshot verification" },
+        "verificationStatus": { "type": "string", "enum": ["UNVERIFIED", "VERIFIED", "PENDING_REVIEW"] },
+        "verificationCode": { "type": "string", "description": "Random anti-fraud challenge code e.g. AX-4821" },
+        "eloRating": { "type": "integer", "description": "ArenaX Elo rating (starts at 1200)" },
+        "arenaPoints": { "type": "integer", "description": "ArenaX points used for challenge stakes" },
+        "wins": { "type": "integer", "description": "Total confirmed challenge wins" },
+        "losses": { "type": "integer", "description": "Total confirmed challenge losses" },
+        "winStreak": { "type": "integer", "description": "Current active win streak" },
+        "followersCount": { "type": "integer", "description": "Follower count" },
+        "followingCount": { "type": "integer", "description": "Following count" },
+        "badges": { "type": "array", "description": "Earned badges (max 10 strings)" },
+        "language": { "type": "string", "description": "Preferred comms language" },
+        "playTime": { "type": "string", "description": "Typical active hours" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp" }
+      },
+      "required": [
+        "userId", "username", "displayName", "bio", "avatarUrl", "visibility",
+        "primaryGame", "primaryIgn", "primaryGameUid", "primaryRank", "primaryLevel",
+        "isVerified", "verificationStatus", "verificationCode", "eloRating", "arenaPoints",
+        "wins", "losses", "winStreak", "followersCount", "followingCount", "badges",
+        "language", "playTime", "createdAt", "updatedAt"
+      ]
+    },
+    "GameProfile": {
+      "title": "GameProfile",
+      "description": "Verified game account binding keyed by {game}_{gameUid} to enforce 1 UID per account.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner Firebase UID" },
+        "username": { "type": "string", "description": "Owner ArenaX username" },
+        "game": { "type": "string", "enum": ["BGMI", "FREE_FIRE"] },
+        "inGameName": { "type": "string", "description": "Extracted IGN from screenshot" },
+        "gameUid": { "type": "string", "description": "Extracted numeric/alphanumeric UID" },
+        "level": { "type": "integer", "description": "Extracted account level" },
+        "rankTier": { "type": "string", "description": "Extracted rank/tier" },
+        "verificationCode": { "type": "string", "description": "Challenge code checked by Gemini Vision" },
+        "codeMatched": { "type": "boolean", "description": "Whether Gemini confirmed the code in bio/name" },
+        "confidence": { "type": "integer", "description": "Gemini confidence score 0-100" },
+        "status": { "type": "string", "enum": ["VERIFIED", "PENDING_REVIEW", "REJECTED"] },
+        "season": { "type": "string", "description": "Season identifier e.g. S1-2026" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "username", "game", "inGameName", "gameUid", "level", "rankTier",
+        "verificationCode", "codeMatched", "confidence", "status", "season", "createdAt", "updatedAt"
+      ]
+    },
+    "Follow": {
+      "title": "Follow",
+      "description": "Social follow edge keyed by {followerId}_{followingId}.",
+      "type": "object",
+      "properties": {
+        "followerId": { "type": "string" },
+        "followerUsername": { "type": "string" },
+        "followingId": { "type": "string" },
+        "followingUsername": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["followerId", "followerUsername", "followingId", "followingUsername", "createdAt"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Feed post: photo highlight, YouTube video clip, or automatic Challenge Result card.",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string" },
+        "authorUsername": { "type": "string" },
+        "authorAvatarUrl": { "type": "string" },
+        "authorVerified": { "type": "boolean" },
+        "authorRank": { "type": "string" },
+        "postType": { "type": "string", "enum": ["PHOTO", "YOUTUBE", "CHALLENGE_RESULT"] },
+        "caption": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "youtubeVideoId": { "type": "string" },
+        "youtubeTitle": { "type": "string" },
+        "gameTag": { "type": "string", "enum": ["BGMI", "FREE_FIRE", "ALL"] },
+        "hashtags": { "type": "array" },
+        "likesCount": { "type": "integer" },
+        "commentsCount": { "type": "integer" },
+        "likedByUids": { "type": "array" },
+        "savedByUids": { "type": "array" },
+        "visibility": { "type": "string", "enum": ["public"] },
+        "challengeId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "authorId", "authorUsername", "authorAvatarUrl", "authorVerified", "authorRank",
+        "postType", "caption", "mediaUrl", "youtubeVideoId", "youtubeTitle", "gameTag",
+        "hashtags", "likesCount", "commentsCount", "likedByUids", "savedByUids",
+        "visibility", "challengeId", "createdAt", "updatedAt"
+      ]
+    },
+    "PostComment": {
+      "title": "PostComment",
+      "description": "Comment under a feed post.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorUsername": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "authorId", "authorUsername", "text", "createdAt"]
+    },
+    "Challenge": {
+      "title": "Challenge",
+      "description": "1v1, Duo, or Squad esports challenge with status state machine, counter-offers, and Elo settlement.",
+      "type": "object",
+      "properties": {
+        "challengerId": { "type": "string" },
+        "challengerUsername": { "type": "string" },
+        "challengerIgn": { "type": "string" },
+        "challengerRank": { "type": "string" },
+        "opponentId": { "type": "string" },
+        "opponentUsername": { "type": "string" },
+        "opponentIgn": { "type": "string" },
+        "opponentRank": { "type": "string" },
+        "participantUids": { "type": "array" },
+        "game": { "type": "string", "enum": ["BGMI", "FREE_FIRE"] },
+        "mode": { "type": "string", "enum": ["1v1", "DUO", "SQUAD"] },
+        "mapName": { "type": "string" },
+        "weaponsRule": { "type": "string" },
+        "rounds": { "type": "integer" },
+        "customNote": { "type": "string" },
+        "scheduledTimeLabel": { "type": "string" },
+        "stakePoints": { "type": "integer" },
+        "status": {
+          "type": "string",
+          "enum": [
+            "sent", "accepted", "declined", "countered", "scheduled",
+            "in_progress", "result_submitted", "confirmed", "disputed",
+            "completed", "expired", "cancelled"
+          ]
+        },
+        "challengerSubmittedScore": { "type": "string" },
+        "challengerProofNote": { "type": "string" },
+        "opponentSubmittedScore": { "type": "string" },
+        "opponentProofNote": { "type": "string" },
+        "winnerId": { "type": "string" },
+        "winnerUsername": { "type": "string" },
+        "finalScoreLabel": { "type": "string" },
+        "statusHistory": { "type": "array" },
+        "visibility": { "type": "string", "enum": ["public"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "challengerId", "challengerUsername", "challengerIgn", "challengerRank",
+        "opponentId", "opponentUsername", "opponentIgn", "opponentRank", "participantUids",
+        "game", "mode", "mapName", "weaponsRule", "rounds", "customNote",
+        "scheduledTimeLabel", "stakePoints", "status", "challengerSubmittedScore",
+        "challengerProofNote", "opponentSubmittedScore", "opponentProofNote",
+        "winnerId", "winnerUsername", "finalScoreLabel", "statusHistory",
+        "visibility", "createdAt", "updatedAt"
+      ]
+    },
+    "ChatThread": {
+      "title": "ChatThread",
+      "description": "Real-time 1:1 or Squad chat room.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "isSquad": { "type": "boolean" },
+        "memberUids": { "type": "array" },
+        "memberNames": { "type": "array" },
+        "lastMessageText": { "type": "string" },
+        "lastMessageSenderId": { "type": "string" },
+        "typingUserId": { "type": "string" },
+        "activeChallengeId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "title", "isSquad", "memberUids", "memberNames", "lastMessageText",
+        "lastMessageSenderId", "typingUserId", "activeChallengeId", "createdAt", "updatedAt"
+      ]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Message inside a chat thread, including Challenge Invitation and Result cards.",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderUsername": { "type": "string" },
+        "memberUids": { "type": "array" },
+        "messageType": { "type": "string", "enum": ["TEXT", "IMAGE", "CHALLENGE_INVITE", "CHALLENGE_RESULT"] },
+        "text": { "type": "string" },
+        "challengeId": { "type": "string" },
+        "challengeSummary": { "type": "string" },
+        "readByUids": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "chatId", "senderId", "senderUsername", "memberUids", "messageType",
+        "text", "challengeId", "challengeSummary", "readByUids", "createdAt"
+      ]
+    },
+    "ArenaNotification": {
+      "title": "ArenaNotification",
+      "description": "In-app notification for follows, likes, comments, messages, and challenge state updates.",
+      "type": "object",
+      "properties": {
+        "recipientId": { "type": "string" },
+        "actorId": { "type": "string" },
+        "actorUsername": { "type": "string" },
+        "type": { "type": "string", "enum": ["FOLLOW", "LIKE", "COMMENT", "CHALLENGE", "SYSTEM"] },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "referenceId": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "recipientId", "actorId", "actorUsername", "type",
+        "title", "body", "referenceId", "isRead", "createdAt"
+      ]
+    },
+    "ModerationReport": {
+      "title": "ModerationReport",
+      "description": "User report or disputed challenge moderation item.",
+      "type": "object",
+      "properties": {
+        "reporterId": { "type": "string" },
+        "reporterUsername": { "type": "string" },
+        "targetType": { "type": "string", "enum": ["USER", "POST", "COMMENT", "CHAT", "DISPUTED_CHALLENGE"] },
+        "targetId": { "type": "string" },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["OPEN", "RESOLVED", "DISMISSED"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "reporterId", "reporterUsername", "targetType", "targetId",
+        "reason", "status", "createdAt", "updatedAt"
+      ]
+    },
+    "UserBlock": {
+      "title": "UserBlock",
+      "description": "Blocked user entry keyed by {blockerId}_{blockedId}.",
+      "type": "object",
+      "properties": {
+        "blockerId": { "type": "string" },
+        "blockedId": { "type": "string" },
+        "blockedUsername": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["blockerId", "blockedId", "blockedUsername", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Public gamer profiles and Elo statistics."
+    },
+    "/gameProfiles/{profileId}": {
+      "schema": { "$ref": "#/entities/GameProfile" },
+      "description": "Verified game UID bindings ({game}_{gameUid})."
+    },
+    "/follows/{followId}": {
+      "schema": { "$ref": "#/entities/Follow" },
+      "description": "Follower/following graph edges."
+    },
+    "/posts/{postId}": {
+      "schema": { "$ref": "#/entities/Post" },
+      "description": "Feed posts (photos, YouTube videos, challenge result cards)."
+    },
+    "/posts/{postId}/comments/{commentId}": {
+      "schema": { "$ref": "#/entities/PostComment" },
+      "description": "Comments under a feed post."
+    },
+    "/challenges/{challengeId}": {
+      "schema": { "$ref": "#/entities/Challenge" },
+      "description": "1v1, Duo, and Squad challenges."
+    },
+    "/chats/{chatId}": {
+      "schema": { "$ref": "#/entities/ChatThread" },
+      "description": "1:1 and Squad chat rooms."
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Real-time messages inside a chat room."
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/ArenaNotification" },
+      "description": "Per-user notifications."
+    },
+    "/reports/{reportId}": {
+      "schema": { "$ref": "#/entities/ModerationReport" },
+      "description": "Moderation reports and disputed challenges."
+    },
+    "/blocks/{blockId}": {
+      "schema": { "$ref": "#/entities/UserBlock" },
+      "description": "Per-user block list."
+    }
+  }
+}

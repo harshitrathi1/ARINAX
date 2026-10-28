@@ -1,0 +1,558 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        ('email' in request.auth.token &&
+         'email_verified' in request.auth.token &&
+         request.auth.token.email == 'indiafastgamers@gmail.com' &&
+         request.auth.token.email_verified == true)
+      );
+    }
+
+    // --- Validation Blueprints ---
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll([
+               'userId', 'username', 'displayName', 'bio', 'avatarUrl', 'visibility',
+               'primaryGame', 'primaryIgn', 'primaryGameUid', 'primaryRank', 'primaryLevel',
+               'isVerified', 'verificationStatus', 'verificationCode', 'eloRating', 'arenaPoints',
+               'wins', 'losses', 'winStreak', 'followersCount', 'followingCount', 'badges',
+               'language', 'playTime', 'createdAt', 'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'userId', 'username', 'displayName', 'bio', 'avatarUrl', 'visibility',
+               'primaryGame', 'primaryIgn', 'primaryGameUid', 'primaryRank', 'primaryLevel',
+               'isVerified', 'verificationStatus', 'verificationCode', 'eloRating', 'arenaPoints',
+               'wins', 'losses', 'winStreak', 'followersCount', 'followingCount', 'badges',
+               'language', 'playTime', 'createdAt', 'updatedAt'
+             ]) &&
+             data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.username is string && data.username.size() >= 3 && data.username.size() <= 30 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 50 &&
+             data.bio is string && data.bio.size() <= 300 &&
+             data.avatarUrl is string && data.avatarUrl.size() <= 500 &&
+             data.visibility in ['public', 'private'] &&
+             data.primaryGame in ['BGMI', 'FREE_FIRE'] &&
+             data.primaryIgn is string && data.primaryIgn.size() <= 50 &&
+             data.primaryGameUid is string && data.primaryGameUid.size() <= 40 &&
+             data.primaryRank is string && data.primaryRank.size() <= 40 &&
+             data.primaryLevel is int && data.primaryLevel >= 0 && data.primaryLevel <= 500 &&
+             data.isVerified is bool &&
+             data.verificationStatus in ['UNVERIFIED', 'VERIFIED', 'PENDING_REVIEW'] &&
+             data.verificationCode is string && data.verificationCode.size() >= 3 && data.verificationCode.size() <= 20 &&
+             data.eloRating is int && data.eloRating >= 0 && data.eloRating <= 10000 &&
+             data.arenaPoints is int && data.arenaPoints >= 0 && data.arenaPoints <= 10000000 &&
+             data.wins is int && data.wins >= 0 && data.wins <= 100000 &&
+             data.losses is int && data.losses >= 0 && data.losses <= 100000 &&
+             data.winStreak is int && data.winStreak >= 0 && data.winStreak <= 10000 &&
+             data.followersCount is int && data.followersCount >= 0 && data.followersCount <= 10000000 &&
+             data.followingCount is int && data.followingCount >= 0 && data.followingCount <= 10000000 &&
+             data.badges is list && data.badges.size() <= 10 && (data.badges.size() == 0 || (data.badges[0] is string && data.badges[0].size() <= 40)) &&
+             data.language is string && data.language.size() >= 1 && data.language.size() <= 30 &&
+             data.playTime is string && data.playTime.size() >= 1 && data.playTime.size() <= 40 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidGameProfile(data) {
+      return data.keys().hasAll([
+               'userId', 'username', 'game', 'inGameName', 'gameUid', 'level', 'rankTier',
+               'verificationCode', 'codeMatched', 'confidence', 'status', 'season', 'createdAt', 'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'userId', 'username', 'game', 'inGameName', 'gameUid', 'level', 'rankTier',
+               'verificationCode', 'codeMatched', 'confidence', 'status', 'season', 'createdAt', 'updatedAt'
+             ]) &&
+             data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.username is string && data.username.size() >= 3 && data.username.size() <= 30 &&
+             data.game in ['BGMI', 'FREE_FIRE'] &&
+             data.inGameName is string && data.inGameName.size() >= 1 && data.inGameName.size() <= 50 &&
+             data.gameUid is string && data.gameUid.size() >= 3 && data.gameUid.size() <= 40 &&
+             data.level is int && data.level >= 1 && data.level <= 500 &&
+             data.rankTier is string && data.rankTier.size() >= 1 && data.rankTier.size() <= 40 &&
+             data.verificationCode is string && data.verificationCode.size() >= 3 && data.verificationCode.size() <= 20 &&
+             data.codeMatched is bool &&
+             data.confidence is int && data.confidence >= 0 && data.confidence <= 100 &&
+             data.status in ['VERIFIED', 'PENDING_REVIEW', 'REJECTED'] &&
+             data.season is string && data.season.size() >= 1 && data.season.size() <= 20 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidFollow(data) {
+      return data.keys().hasAll(['followerId', 'followerUsername', 'followingId', 'followingUsername', 'createdAt']) &&
+             data.keys().hasOnly(['followerId', 'followerUsername', 'followingId', 'followingUsername', 'createdAt']) &&
+             data.followerId is string && data.followerId.size() >= 1 && data.followerId.size() <= 128 &&
+             data.followerUsername is string && data.followerUsername.size() >= 3 && data.followerUsername.size() <= 30 &&
+             data.followingId is string && data.followingId.size() >= 1 && data.followingId.size() <= 128 &&
+             data.followingUsername is string && data.followingUsername.size() >= 3 && data.followingUsername.size() <= 30 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidPost(data) {
+      return data.keys().hasAll([
+               'authorId', 'authorUsername', 'authorAvatarUrl', 'authorVerified', 'authorRank',
+               'postType', 'caption', 'mediaUrl', 'youtubeVideoId', 'youtubeTitle', 'gameTag',
+               'hashtags', 'likesCount', 'commentsCount', 'likedByUids', 'savedByUids',
+               'visibility', 'challengeId', 'createdAt', 'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'authorId', 'authorUsername', 'authorAvatarUrl', 'authorVerified', 'authorRank',
+               'postType', 'caption', 'mediaUrl', 'youtubeVideoId', 'youtubeTitle', 'gameTag',
+               'hashtags', 'likesCount', 'commentsCount', 'likedByUids', 'savedByUids',
+               'visibility', 'challengeId', 'createdAt', 'updatedAt'
+             ]) &&
+             data.authorId is string && data.authorId.size() >= 1 && data.authorId.size() <= 128 &&
+             data.authorUsername is string && data.authorUsername.size() >= 3 && data.authorUsername.size() <= 30 &&
+             data.authorAvatarUrl is string && data.authorAvatarUrl.size() <= 500 &&
+             data.authorVerified is bool &&
+             data.authorRank is string && data.authorRank.size() <= 40 &&
+             data.postType in ['PHOTO', 'YOUTUBE', 'CHALLENGE_RESULT'] &&
+             data.caption is string && data.caption.size() >= 1 && data.caption.size() <= 1000 &&
+             data.mediaUrl is string && data.mediaUrl.size() <= 500 &&
+             data.youtubeVideoId is string && data.youtubeVideoId.size() <= 30 &&
+             data.youtubeTitle is string && data.youtubeTitle.size() <= 200 &&
+             data.gameTag in ['BGMI', 'FREE_FIRE', 'ALL'] &&
+             data.hashtags is list && data.hashtags.size() <= 10 && (data.hashtags.size() == 0 || (data.hashtags[0] is string && data.hashtags[0].size() <= 40)) &&
+             data.likesCount is int && data.likesCount >= 0 && data.likesCount <= 10000000 &&
+             data.commentsCount is int && data.commentsCount >= 0 && data.commentsCount <= 10000000 &&
+             data.likedByUids is list && data.likedByUids.size() <= 50 && (data.likedByUids.size() == 0 || (data.likedByUids[0] is string && data.likedByUids[0].size() <= 128)) &&
+             data.savedByUids is list && data.savedByUids.size() <= 50 && (data.savedByUids.size() == 0 || (data.savedByUids[0] is string && data.savedByUids[0].size() <= 128)) &&
+             data.visibility == 'public' &&
+             data.challengeId is string && data.challengeId.size() <= 128 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidComment(data) {
+      return data.keys().hasAll(['postId', 'authorId', 'authorUsername', 'text', 'createdAt']) &&
+             data.keys().hasOnly(['postId', 'authorId', 'authorUsername', 'text', 'createdAt']) &&
+             data.postId is string && data.postId.size() >= 1 && data.postId.size() <= 128 &&
+             data.authorId is string && data.authorId.size() >= 1 && data.authorId.size() <= 128 &&
+             data.authorUsername is string && data.authorUsername.size() >= 3 && data.authorUsername.size() <= 30 &&
+             data.text is string && data.text.size() >= 1 && data.text.size() <= 500 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidChallenge(data) {
+      return data.keys().hasAll([
+               'challengerId', 'challengerUsername', 'challengerIgn', 'challengerRank',
+               'opponentId', 'opponentUsername', 'opponentIgn', 'opponentRank', 'participantUids',
+               'game', 'mode', 'mapName', 'weaponsRule', 'rounds', 'customNote',
+               'scheduledTimeLabel', 'stakePoints', 'status', 'challengerSubmittedScore',
+               'challengerProofNote', 'opponentSubmittedScore', 'opponentProofNote',
+               'winnerId', 'winnerUsername', 'finalScoreLabel', 'statusHistory',
+               'visibility', 'createdAt', 'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'challengerId', 'challengerUsername', 'challengerIgn', 'challengerRank',
+               'opponentId', 'opponentUsername', 'opponentIgn', 'opponentRank', 'participantUids',
+               'game', 'mode', 'mapName', 'weaponsRule', 'rounds', 'customNote',
+               'scheduledTimeLabel', 'stakePoints', 'status', 'challengerSubmittedScore',
+               'challengerProofNote', 'opponentSubmittedScore', 'opponentProofNote',
+               'winnerId', 'winnerUsername', 'finalScoreLabel', 'statusHistory',
+               'visibility', 'createdAt', 'updatedAt'
+             ]) &&
+             data.challengerId is string && data.challengerId.size() >= 1 && data.challengerId.size() <= 128 &&
+             data.challengerUsername is string && data.challengerUsername.size() >= 3 && data.challengerUsername.size() <= 30 &&
+             data.challengerIgn is string && data.challengerIgn.size() <= 50 &&
+             data.challengerRank is string && data.challengerRank.size() <= 40 &&
+             data.opponentId is string && data.opponentId.size() >= 1 && data.opponentId.size() <= 128 &&
+             data.opponentUsername is string && data.opponentUsername.size() >= 3 && data.opponentUsername.size() <= 30 &&
+             data.opponentIgn is string && data.opponentIgn.size() <= 50 &&
+             data.opponentRank is string && data.opponentRank.size() <= 40 &&
+             data.participantUids is list && data.participantUids.size() == 2 && data.participantUids[0] is string && data.participantUids[0].size() <= 128 &&
+             data.game in ['BGMI', 'FREE_FIRE'] &&
+             data.mode in ['1v1', 'DUO', 'SQUAD'] &&
+             data.mapName is string && data.mapName.size() >= 1 && data.mapName.size() <= 50 &&
+             data.weaponsRule is string && data.weaponsRule.size() >= 1 && data.weaponsRule.size() <= 100 &&
+             data.rounds is int && data.rounds >= 1 && data.rounds <= 30 &&
+             data.customNote is string && data.customNote.size() <= 300 &&
+             data.scheduledTimeLabel is string && data.scheduledTimeLabel.size() >= 1 && data.scheduledTimeLabel.size() <= 80 &&
+             data.stakePoints is int && data.stakePoints >= 10 && data.stakePoints <= 5000 &&
+             data.status in [
+               'sent', 'accepted', 'declined', 'countered', 'scheduled',
+               'in_progress', 'result_submitted', 'confirmed', 'disputed',
+               'completed', 'expired', 'cancelled'
+             ] &&
+             data.challengerSubmittedScore is string && data.challengerSubmittedScore.size() <= 30 &&
+             data.challengerProofNote is string && data.challengerProofNote.size() <= 300 &&
+             data.opponentSubmittedScore is string && data.opponentSubmittedScore.size() <= 30 &&
+             data.opponentProofNote is string && data.opponentProofNote.size() <= 300 &&
+             data.winnerId is string && data.winnerId.size() <= 128 &&
+             data.winnerUsername is string && data.winnerUsername.size() <= 50 &&
+             data.finalScoreLabel is string && data.finalScoreLabel.size() <= 40 &&
+             data.statusHistory is list && data.statusHistory.size() <= 20 && (data.statusHistory.size() == 0 || (data.statusHistory[0] is string && data.statusHistory[0].size() <= 120)) &&
+             data.visibility == 'public' &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidChatThread(data) {
+      return data.keys().hasAll([
+               'title', 'isSquad', 'memberUids', 'memberNames', 'lastMessageText',
+               'lastMessageSenderId', 'typingUserId', 'activeChallengeId', 'createdAt', 'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'title', 'isSquad', 'memberUids', 'memberNames', 'lastMessageText',
+               'lastMessageSenderId', 'typingUserId', 'activeChallengeId', 'createdAt', 'updatedAt'
+             ]) &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 80 &&
+             data.isSquad is bool &&
+             data.memberUids is list && data.memberUids.size() >= 1 && data.memberUids.size() <= 10 && data.memberUids[0] is string && data.memberUids[0].size() <= 128 &&
+             data.memberNames is list && data.memberNames.size() >= 1 && data.memberNames.size() <= 10 && data.memberNames[0] is string && data.memberNames[0].size() <= 50 &&
+             data.lastMessageText is string && data.lastMessageText.size() <= 500 &&
+             data.lastMessageSenderId is string && data.lastMessageSenderId.size() <= 128 &&
+             data.typingUserId is string && data.typingUserId.size() <= 128 &&
+             data.activeChallengeId is string && data.activeChallengeId.size() <= 128 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidChatMessage(data) {
+      return data.keys().hasAll([
+               'chatId', 'senderId', 'senderUsername', 'memberUids', 'messageType',
+               'text', 'challengeId', 'challengeSummary', 'readByUids', 'createdAt'
+             ]) &&
+             data.keys().hasOnly([
+               'chatId', 'senderId', 'senderUsername', 'memberUids', 'messageType',
+               'text', 'challengeId', 'challengeSummary', 'readByUids', 'createdAt'
+             ]) &&
+             data.chatId is string && data.chatId.size() >= 1 && data.chatId.size() <= 128 &&
+             data.senderId is string && data.senderId.size() >= 1 && data.senderId.size() <= 128 &&
+             data.senderUsername is string && data.senderUsername.size() >= 3 && data.senderUsername.size() <= 30 &&
+             data.memberUids is list && data.memberUids.size() >= 1 && data.memberUids.size() <= 10 && data.memberUids[0] is string && data.memberUids[0].size() <= 128 &&
+             data.messageType in ['TEXT', 'IMAGE', 'CHALLENGE_INVITE', 'CHALLENGE_RESULT'] &&
+             data.text is string && data.text.size() >= 1 && data.text.size() <= 1000 &&
+             data.challengeId is string && data.challengeId.size() <= 128 &&
+             data.challengeSummary is string && data.challengeSummary.size() <= 300 &&
+             data.readByUids is list && data.readByUids.size() <= 10 && (data.readByUids.size() == 0 || (data.readByUids[0] is string && data.readByUids[0].size() <= 128)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll([
+               'recipientId', 'actorId', 'actorUsername', 'type',
+               'title', 'body', 'referenceId', 'isRead', 'createdAt'
+             ]) &&
+             data.keys().hasOnly([
+               'recipientId', 'actorId', 'actorUsername', 'type',
+               'title', 'body', 'referenceId', 'isRead', 'createdAt'
+             ]) &&
+             data.recipientId is string && data.recipientId.size() >= 1 && data.recipientId.size() <= 128 &&
+             data.actorId is string && data.actorId.size() >= 1 && data.actorId.size() <= 128 &&
+             data.actorUsername is string && data.actorUsername.size() >= 3 && data.actorUsername.size() <= 30 &&
+             data.type in ['FOLLOW', 'LIKE', 'COMMENT', 'CHALLENGE', 'SYSTEM'] &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 100 &&
+             data.body is string && data.body.size() >= 1 && data.body.size() <= 300 &&
+             data.referenceId is string && data.referenceId.size() <= 128 &&
+             data.isRead is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidReport(data) {
+      return data.keys().hasAll([
+               'reporterId', 'reporterUsername', 'targetType', 'targetId',
+               'reason', 'status', 'createdAt', 'updatedAt'
+             ]) &&
+             data.keys().hasOnly([
+               'reporterId', 'reporterUsername', 'targetType', 'targetId',
+               'reason', 'status', 'createdAt', 'updatedAt'
+             ]) &&
+             data.reporterId is string && data.reporterId.size() >= 1 && data.reporterId.size() <= 128 &&
+             data.reporterUsername is string && data.reporterUsername.size() >= 3 && data.reporterUsername.size() <= 30 &&
+             data.targetType in ['USER', 'POST', 'COMMENT', 'CHAT', 'DISPUTED_CHALLENGE'] &&
+             data.targetId is string && data.targetId.size() >= 1 && data.targetId.size() <= 128 &&
+             data.reason is string && data.reason.size() >= 1 && data.reason.size() <= 500 &&
+             data.status in ['OPEN', 'RESOLVED', 'DISMISSED'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidBlock(data) {
+      return data.keys().hasAll(['blockerId', 'blockedId', 'blockedUsername', 'createdAt']) &&
+             data.keys().hasOnly(['blockerId', 'blockedId', 'blockedUsername', 'createdAt']) &&
+             data.blockerId is string && data.blockerId.size() >= 1 && data.blockerId.size() <= 128 &&
+             data.blockedId is string && data.blockedId.size() >= 1 && data.blockedId.size() <= 128 &&
+             data.blockedUsername is string && data.blockedUsername.size() >= 3 && data.blockedUsername.size() <= 30 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    // --- Collection Match Blocks ---
+
+    match /admins/{adminUid} {
+      allow get: if isSignedIn() && isValidId(adminUid) && request.auth.uid == adminUid;
+      allow list, write: if false;
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (
+        request.auth.uid == userId || existing().visibility == 'public' || isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        existing().userId == request.auth.uid || existing().visibility == 'public' || isAdmin()
+      );
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       ((request.auth.uid == userId && incoming().userId == request.auth.uid) ||
+                        (userId.matches('^arenax_rival_[a-z0-9_]+$') && incoming().userId == userId)) &&
+                       isValidUserProfile(incoming());
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt && (
+                         (request.auth.uid == userId &&
+                          incoming().diff(existing()).affectedKeys().hasOnly([
+                            'username', 'displayName', 'bio', 'avatarUrl', 'visibility',
+                            'primaryGame', 'primaryIgn', 'primaryGameUid', 'primaryRank', 'primaryLevel',
+                            'isVerified', 'verificationStatus', 'verificationCode', 'eloRating', 'arenaPoints',
+                            'wins', 'losses', 'winStreak', 'followersCount', 'followingCount', 'badges',
+                            'language', 'playTime', 'updatedAt'
+                          ])) ||
+                         (incoming().diff(existing()).affectedKeys().hasOnly([
+                            'followersCount', 'eloRating', 'arenaPoints', 'wins', 'losses', 'winStreak', 'badges', 'updatedAt'
+                          ])) ||
+                         isAdmin()
+                       );
+      allow delete: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+    }
+
+    match /gameProfiles/{profileId} {
+      allow get: if isSignedIn() && isValidId(profileId) && (
+        existing().userId == request.auth.uid || existing().status == 'VERIFIED' || isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        existing().userId == request.auth.uid || existing().status == 'VERIFIED' || isAdmin()
+      );
+      allow create: if isSignedIn() &&
+                       isValidId(profileId) &&
+                       incoming().userId == request.auth.uid &&
+                       isValidGameProfile(incoming());
+      allow update: if isSignedIn() &&
+                       isValidId(profileId) &&
+                       isValidGameProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt && (
+                         (request.auth.uid == existing().userId &&
+                          incoming().diff(existing()).affectedKeys().hasOnly([
+                            'inGameName', 'level', 'rankTier', 'verificationCode',
+                            'codeMatched', 'confidence', 'status', 'season', 'updatedAt'
+                          ])) ||
+                         (isAdmin() &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
+                       );
+      allow delete: if isSignedIn() && isValidId(profileId) && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    match /follows/{followId} {
+      allow get: if isSignedIn() && isValidId(followId) && (
+        existing().followerId == request.auth.uid || existing().followingId == request.auth.uid
+      );
+      allow list: if isSignedIn() && (
+        existing().followerId == request.auth.uid || existing().followingId == request.auth.uid
+      );
+      allow create: if isSignedIn() &&
+                       isValidId(followId) &&
+                       incoming().followerId == request.auth.uid &&
+                       incoming().followerId != incoming().followingId &&
+                       isValidFollow(incoming());
+      allow update: if false;
+      allow delete: if isSignedIn() && isValidId(followId) && existing().followerId == request.auth.uid;
+    }
+
+    match /posts/{postId} {
+      allow get: if isSignedIn() && isValidId(postId) && (
+        existing().authorId == request.auth.uid || existing().visibility == 'public' || isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        existing().authorId == request.auth.uid || existing().visibility == 'public' || isAdmin()
+      );
+      allow create: if isSignedIn() &&
+                       isValidId(postId) &&
+                       (incoming().authorId == request.auth.uid ||
+                        incoming().authorId.matches('^arenax_rival_[a-z0-9_]+$')) &&
+                       isValidPost(incoming());
+      allow update: if isSignedIn() &&
+                       isValidId(postId) &&
+                       isValidPost(incoming()) &&
+                       incoming().authorId == existing().authorId &&
+                       incoming().createdAt == existing().createdAt && (
+                         (request.auth.uid == existing().authorId &&
+                          incoming().diff(existing()).affectedKeys().hasOnly([
+                            'caption', 'hashtags', 'likesCount', 'commentsCount',
+                            'likedByUids', 'savedByUids', 'updatedAt'
+                          ])) ||
+                         (incoming().diff(existing()).affectedKeys().hasOnly([
+                            'likesCount', 'commentsCount', 'likedByUids', 'savedByUids', 'updatedAt'
+                          ])) ||
+                         isAdmin()
+                       );
+      allow delete: if isSignedIn() && isValidId(postId) && (existing().authorId == request.auth.uid || isAdmin());
+
+      match /comments/{commentId} {
+        allow get: if isSignedIn() && isValidId(postId) && isValidId(commentId) && (
+          existing().authorId == request.auth.uid || existing().postId == postId
+        );
+        allow list: if isSignedIn() && (
+          existing().authorId == request.auth.uid || existing().postId == postId
+        );
+        allow create: if isSignedIn() &&
+                         isValidId(postId) &&
+                         isValidId(commentId) &&
+                         incoming().authorId == request.auth.uid &&
+                         incoming().postId == postId &&
+                         isValidComment(incoming());
+        allow update: if false;
+        allow delete: if isSignedIn() && isValidId(postId) && isValidId(commentId) && (
+          existing().authorId == request.auth.uid || isAdmin()
+        );
+      }
+    }
+
+    match /challenges/{challengeId} {
+      allow get: if isSignedIn() && isValidId(challengeId) && (
+        request.auth.uid in existing().participantUids || existing().visibility == 'public' || isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        request.auth.uid in existing().participantUids || existing().visibility == 'public' || isAdmin()
+      );
+      allow create: if isSignedIn() &&
+                       isValidId(challengeId) &&
+                       incoming().challengerId == request.auth.uid &&
+                       incoming().challengerId != incoming().opponentId &&
+                       request.auth.uid in incoming().participantUids &&
+                       incoming().status == 'sent' &&
+                       isValidChallenge(incoming());
+      allow update: if isSignedIn() &&
+                       isValidId(challengeId) &&
+                       isValidChallenge(incoming()) &&
+                       incoming().challengerId == existing().challengerId &&
+                       incoming().opponentId == existing().opponentId &&
+                       incoming().createdAt == existing().createdAt && (
+                         (request.auth.uid in existing().participantUids &&
+                          !(existing().status in ['completed', 'declined', 'expired', 'cancelled']) &&
+                          incoming().diff(existing()).affectedKeys().hasOnly([
+                            'mapName', 'weaponsRule', 'rounds', 'customNote', 'scheduledTimeLabel',
+                            'stakePoints', 'status', 'challengerSubmittedScore', 'challengerProofNote',
+                            'opponentSubmittedScore', 'opponentProofNote', 'winnerId',
+                            'winnerUsername', 'finalScoreLabel', 'statusHistory', 'updatedAt'
+                          ])) ||
+                         isAdmin()
+                       );
+      allow delete: if isSignedIn() && isValidId(challengeId) && isAdmin();
+    }
+
+    match /chats/{chatId} {
+      allow get: if isSignedIn() && isValidId(chatId) && request.auth.uid in existing().memberUids;
+      allow list: if isSignedIn() && request.auth.uid in existing().memberUids;
+      allow create: if isSignedIn() &&
+                       isValidId(chatId) &&
+                       request.auth.uid in incoming().memberUids &&
+                       isValidChatThread(incoming());
+      allow update: if isSignedIn() &&
+                       isValidId(chatId) &&
+                       isValidChatThread(incoming()) &&
+                       request.auth.uid in existing().memberUids &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'title', 'lastMessageText', 'lastMessageSenderId',
+                         'typingUserId', 'activeChallengeId', 'updatedAt'
+                       ]);
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow get: if isSignedIn() && isValidId(chatId) && isValidId(messageId) && request.auth.uid in existing().memberUids;
+        allow list: if isSignedIn() && request.auth.uid in existing().memberUids;
+        allow create: if isSignedIn() &&
+                         isValidId(chatId) &&
+                         isValidId(messageId) &&
+                         incoming().senderId == request.auth.uid &&
+                         incoming().chatId == chatId &&
+                         request.auth.uid in incoming().memberUids &&
+                         isValidChatMessage(incoming());
+        allow update: if isSignedIn() &&
+                         isValidId(chatId) &&
+                         isValidId(messageId) &&
+                         isValidChatMessage(incoming()) &&
+                         request.auth.uid in existing().memberUids &&
+                         incoming().senderId == existing().senderId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['readByUids']);
+        allow delete: if false;
+      }
+    }
+
+    match /notifications/{notificationId} {
+      allow get: if isSignedIn() && isValidId(notificationId) && existing().recipientId == request.auth.uid;
+      allow list: if isSignedIn() && existing().recipientId == request.auth.uid;
+      allow create: if isSignedIn() &&
+                       isValidId(notificationId) &&
+                       incoming().actorId == request.auth.uid &&
+                       isValidNotification(incoming());
+      allow update: if isSignedIn() &&
+                       isValidId(notificationId) &&
+                       isValidNotification(incoming()) &&
+                       existing().recipientId == request.auth.uid &&
+                       incoming().recipientId == existing().recipientId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['isRead']);
+      allow delete: if isSignedIn() && isValidId(notificationId) && existing().recipientId == request.auth.uid;
+    }
+
+    match /reports/{reportId} {
+      allow get: if isSignedIn() && isValidId(reportId) && (existing().reporterId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().reporterId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() &&
+                       isValidId(reportId) &&
+                       incoming().reporterId == request.auth.uid &&
+                       incoming().status == 'OPEN' &&
+                       isValidReport(incoming());
+      allow update: if isSignedIn() &&
+                       isValidId(reportId) &&
+                       isValidReport(incoming()) &&
+                       isAdmin() &&
+                       incoming().reporterId == existing().reporterId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if isSignedIn() && isValidId(reportId) && isAdmin();
+    }
+
+    match /blocks/{blockId} {
+      allow get: if isSignedIn() && isValidId(blockId) && existing().blockerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().blockerId == request.auth.uid;
+      allow create: if isSignedIn() &&
+                       isValidId(blockId) &&
+                       incoming().blockerId == request.auth.uid &&
+                       incoming().blockerId != incoming().blockedId &&
+                       isValidBlock(incoming());
+      allow update: if false;
+      allow delete: if isSignedIn() && isValidId(blockId) && existing().blockerId == request.auth.uid;
+    }
+  }
+}
